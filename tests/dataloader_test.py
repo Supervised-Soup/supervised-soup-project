@@ -14,7 +14,7 @@ import os
 # Images are float32 → required by PyTorch models
 
 def test_batch():
-    
+
     train_loader, _ = get_dataloaders(with_augmentation=False)
 
     images, labels = next(iter(train_loader))

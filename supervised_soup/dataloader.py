@@ -27,21 +27,13 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-# Needed for seed 
-# import random
-# import numpy as np
 
 import supervised_soup.config as config
+import supervised_soup.seed as seed_module
 
 
-# Shall we also add a seed worker function for reproducibility?
-# Each worker gets a different, but reproducible seed
-# def seed_worker(worker_id: int):
-#    worker_seed = torch.initial_seed() % 2**32
-#    np.random.seed(worker_seed)
-#    random.seed(worker_seed)
-
-
+# global seed
+seed_module.set_seed(config.SEED)
 
 # Normalizations expected for pre-trained models
 MEAN = [0.485, 0.456, 0.406]
@@ -79,7 +71,7 @@ def get_dataloaders(
     batch_size=config.BATCH_SIZE,
     num_workers=config.NUM_WORKERS,
     with_augmentation=False,
-    # seed: int = 42,
+    seed=config.SEED
 ):
     """
     Returns train_loader and val_loader.
@@ -87,6 +79,8 @@ def get_dataloaders(
     - If with_augmentation=True we will use train_transforms (with augmentations)
     - If with_augmentation=False we use baseline transforms.
     - Validation transforms are always the same.
+    - Configured for reproducibility when randomness is involved, e.g. shuffling and augmentations.
+    - Uses functionality from seed.py for reproducibility.
 
     - Example use for baseline:
     - train_loader, val_loader = get_dataloaders(with_augmentation=False)
@@ -95,15 +89,7 @@ def get_dataloaders(
     data_path = Path(data_path)
 
     train_transform = train_transforms if with_augmentation else baseline_transforms
-    # persistent = (num_workers > 0)  
-    # so, I found this function that can speed the loading
-    # the point is that normally, at the end of every epoch, the DataLoader kills the worker processes.
-    # At the start of the next epoch, it creates them again. If we keep them alive it will be less costly for RAM
-    # https://discuss.pytorch.org/t/what-are-the-dis-advantages-of-persistent-workers/102110
-
     
-
-
     # loading the datasets for train and val with ImageFolder
     # ImageFolder automatically reads and decodes JPEGs
     train_dataset = datasets.ImageFolder(
@@ -119,9 +105,9 @@ def get_dataloaders(
     # basically checks if GPU is available for training
     pin = torch.cuda.is_available()
 
-    # seed
-    # g = torch.Generator()
-    # g.manual_seed(seed)
+    # defines a generator for deterministic shuffling
+    generator = torch.Generator()
+    generator.manual_seed(seed)
 
 
     train_loader = DataLoader(
@@ -132,7 +118,9 @@ def get_dataloaders(
         num_workers=num_workers,
         # should be true if using GPU, but false if CPU, PIN automatially sets it now depending whether CUDA is available
         pin_memory=pin,
-        # persistent_workers=persistent,
+        persistent_workers=True,
+        worker_init_fn=seed_module.seed_worker,
+        generator=generator
     )
 
     val_loader = DataLoader(
@@ -141,6 +129,7 @@ def get_dataloaders(
         shuffle=False,
         num_workers=num_workers,
         pin_memory=pin,
+        persistent_workers=True,
     )
 
     return train_loader, val_loader
