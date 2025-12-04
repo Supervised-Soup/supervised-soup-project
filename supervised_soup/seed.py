@@ -28,7 +28,8 @@ def set_seed(seed: int):
     # see: https://docs.pytorch.org/docs/stable/notes/randomness.html
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
+    
+    # this might be stricter then we want/need, might break RandomResizedCrop
     torch.use_deterministic_algorithms(True)
 
 
@@ -44,5 +45,3 @@ def seed_worker(worker_id):
     # NumPy expects 32-bit seed
     np.random.seed(seed % 2**32)  
     random.seed(seed)
-
-    return seed_worker

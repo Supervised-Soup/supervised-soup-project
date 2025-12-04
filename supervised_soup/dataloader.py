@@ -118,7 +118,7 @@ def get_dataloaders(
         num_workers=num_workers,
         # should be true if using GPU, but false if CPU, PIN automatially sets it now depending whether CUDA is available
         pin_memory=pin,
-        persistent_workers=True,
+        persistent_workers=num_workers > 0,
         worker_init_fn=seed_module.seed_worker,
         generator=generator
     )
@@ -129,7 +129,7 @@ def get_dataloaders(
         shuffle=False,
         num_workers=num_workers,
         pin_memory=pin,
-        persistent_workers=True,
+        persistent_workers=num_workers > 0,
     )
 
     return train_loader, val_loader

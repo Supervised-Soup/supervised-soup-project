@@ -23,7 +23,7 @@ def validate_path(path: Path) -> Path:
     if not path or not os.path.exists(path):
         raise FileNotFoundError(f"Dataset path not found: {path}. Please check DATA_PATH in .env or Drive mount.")
     else:
-        print(f"Using the following data path: {DATA_PATH}")
+        print(f"Using the following data path: {path}")
     return path
 
 
