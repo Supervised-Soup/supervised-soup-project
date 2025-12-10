@@ -27,12 +27,9 @@ from sklearn.metrics import accuracy_score, f1_score, top_k_accuracy_score, conf
 # should be in model.py, not done in train
 def build_model(num_classes=10, pretrained=True, freeze_layers=True):
     """Returns a ResNet-18 model with the last layer replaced for num_classes."""
-    # not sure if V1 or V2 is better for baseline
-    # if you get a complaint here that's apparently a false positive from Pylint, because Pylint’s local type information only includes V1.
+    # not sure if V1 or V2 is better for baseline, or makes any difference
     weights = models.ResNet18_Weights.IMAGENET1K_V1  
     model = models.resnet18(weights=weights if pretrained else None)
-
-
 
     # to freeze or not to freeze
     if freeze_layers:
@@ -66,37 +63,48 @@ def save_checkpoint(model, optimizer, epoch, loss):
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
     """ Trains the model for one epoch
     returns train_loss and train_acc for epoch"""
+
     model.train()
+
     running_loss = 0
     all_predictions = []
     all_labels = []
 
+    # loop over batches in dataloader
     for imgs, labels in dataloader:
         imgs, labels = imgs.to(device), labels.to(device)
 
+        # zeroes out previous gradients
         optimizer.zero_grad()
+        # forward pass 
         outputs = model(imgs)
+        # compute loss for batch
         loss = criterion(outputs, labels)
+        # backprop gradients
         loss.backward()
+        # update model parameters
         optimizer.step()
         running_loss += loss.item() * imgs.size(0)
 
+        # get predicted labels and store predictions and labels
         predictions = outputs.argmax(dim=1)
         all_predictions.extend(predictions.cpu().numpy())
         all_labels.extend(labels.cpu().numpy())
 
+    # compute loss and accuracy for epoch
     epoch_loss = running_loss / len(dataloader.dataset)
     epoch_acc = accuracy_score(all_labels, all_predictions)
+
     return epoch_loss, epoch_acc
 
+
+# decorator to disable gradient calculation
 @torch.no_grad()
 def validate_one_epoch(model, loader, criterion, device):
     """ Validates the model for one epoch
     currrently returns: epoch_loss, epoch_acc, epoch_f1, epoch_top5, epoch_cm"""
     model.eval()
     running_loss = 0.0
-    correct = 0
-    total = 0
 
     all_labels = []
     all_predictions = []
@@ -106,12 +114,17 @@ def validate_one_epoch(model, loader, criterion, device):
     for images, labels in loader:
         images, labels = images.to(device), labels.to(device)
 
+        # forward pass
+        # no gradient calculated for validation (decorator)
         outputs = model(images)
-        loss = criterion(outputs, labels)
 
+        # compute and accumulate loss
+        loss = criterion(outputs, labels)
         running_loss += loss.item() * images.size(0)
 
+        # get predicted classes
         predictions = outputs.argmax(dim=1)
+        # store predictions, labels, and predicted probabilities
         all_predictions.extend(predictions.cpu().numpy())
         all_labels.extend(labels.cpu().numpy())
         all_predicted_probabilities.extend(outputs.softmax(dim=1).cpu().numpy())
@@ -126,8 +139,7 @@ def validate_one_epoch(model, loader, criterion, device):
     return epoch_loss, epoch_acc, epoch_f1, epoch_top5, epoch_cm
 
 
-def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e-3, device: str = config.DEVICE,
-    checkpoint_name: str ="best_model_checkpoint"):
+def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e-3, device: str = config.DEVICE):
     """
     Main training function:
     - loads dataloaders
@@ -136,7 +148,7 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
     - logs losses/accuracy
     - saves best checkpoint
 
-    Example use in notebook :
+    Example use:
         from supervised_soup.train import train_baseline
         results = train_baseline(epochs=10)
     """
