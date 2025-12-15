@@ -211,27 +211,3 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
     return model, history
 
 
-# Quick and dirty test run for 1 epoch
-# if you run this on CPU it'll take like 20 minutes or so
-
-from pathlib import Path
-# Create a temporary folder for checkpoints
-test_checkpoint_path = Path("test_results")
-test_checkpoint_path.mkdir(parents=True, exist_ok=True)
-
-# Temporarily override the CHECKPOINTS_PATH
-config.CHECKPOINTS_PATH = test_checkpoint_path
-model, history = run_training(
-    epochs=1,            
-    with_augmentation=False, 
-    lr=0.01
-)
-
-# Print summary of metrics
-print("History keys:", history.keys())
-print("Train Loss:", history["train_loss"])
-print("Val Accuracy:", history["val_acc"])
-print("F1 Score:", history["val_f1"])
-print("Top-5 Accuracy:", history["val_top5"])
-print("Confusion Matrix:\n", history["val_cm"][-1])
-
