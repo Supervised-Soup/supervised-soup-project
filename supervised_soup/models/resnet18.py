@@ -28,8 +28,7 @@ def build_model(num_classes=10, pretrained=True, freeze_layers=True):
         for param in model.parameters():
             param.requires_grad = False
 
-    # replace the final layer
-    # Step 1: Get the number of input features
+    # get the number of input features
     in_features = model.fc.in_features
     print("fc input features:", in_features)
 
