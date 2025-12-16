@@ -273,16 +273,14 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
         for cls, acc in per_class_acc.items():
             log_data[f"val/per_class_acc/class_{cls}"] = acc
 
-        wandb.log(log_data)
 
-        wandb.log({
-            "val/confusion_matrix": wandb.plot.confusion_matrix(
-                y_true=val_labels,
-                preds=val_predictions,
-                class_names=[f"class_{i}" for i in range(10)],
-            )
-        })
+        log_data["val/confusion_matrix"] = wandb.plot.confusion_matrix(
+            y_true=val_labels,
+            preds=val_predictions,
+            class_names=[f"class_{i}" for i in range(10)],
+        )
 
+        wandb.log(log_data, step=epoch)
 
         # Save best checkpoint (with wandb)
         if val_acc > best_val_acc:
