@@ -148,7 +148,13 @@ def validate_one_epoch(model, dataloader, criterion, device):
     return epoch_loss, epoch_acc, epoch_f1, epoch_top5, epoch_cm, all_labels, all_predictions
 
 
-def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e-3, device: str = config.DEVICE):
+# the * makes teh keyword arguments mandatory
+def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained: bool =True, is_frozen: bool =True,  lr: float = 1e-3, device: str = config.DEVICE,
+                    # wandb (experiment metadata)
+                    wandb_project: str = "baseline-resnet-18",
+                    wandb_group: str | None = None,
+                    wandb_name: str | None = None,
+                    run_type: str = "baseline", ):
     """
     Main training function:
     - loads dataloaders
@@ -158,8 +164,9 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
     - saves best checkpoint
 
     Example use:
-        from supervised_soup.train import train_baseline
-        results = train_baseline(epochs=10)
+        from supervised_soup.train import run_training
+        
+        run_training(epochs=10, lr=1e-3, wandb_group="baseline_frozen", wandb_name="seed42_lr1e-3_noaug")
     """
     # set seed for reproducibility
     seed_module.set_seed(config.SEED)
@@ -171,28 +178,34 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
 
     ## initialize wandb
     wandb.init(
-        project="baseline-resnet-18",
+        project=wandb_project,
         entity="neural-spi-university",
-        name=f"baseline_lr{lr}_aug{with_augmentation}",
+        group=wandb_group,
+        name=wandb_name if wandb_name else f"{run_type}_lr{lr}_aug{with_augmentation}",
         config={
             "model": "resnet18",
             "pretrained": True,
             "freeze_layers": True,
             "loss": "CrossEntropyLoss",
             "optimizer": "SGD",
+            "momentum": 0.9,
             "scheduler": "CosineAnnealingLR",
             "learning_rate": lr,
             "min_lr": 1e-6,
             "epochs": epochs,
-            "batch_size": train_loader.batch_size,
+            "batch_size": config.BATCH_SIZE,
             "augmentation": with_augmentation,
             "num_classes": 10,
             "seed": config.SEED,
         },
     )
+    # wandb run-level metadata
+    wandb.run.summary["run_type"] = run_type
+    wandb.run.summary["model"] = "resnet18"
+    wandb.run.summary["frozen_backbone"] = True
 
 
-    model = build_model(num_classes=10, pretrained=True, freeze_layers=True)
+    model = build_model(num_classes=10, pretrained=pretrained, freeze_layers=is_frozen)
     model.to(device)
 
     wandb.watch(model, log="gradients", log_freq=100)
@@ -201,14 +214,10 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
     criterion = nn.CrossEntropyLoss()
     # added filter to avoid iterating over frozen parameters
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
-        lr=lr,
-        momentum=0.9,)
+        lr=lr, momentum=0.9,)
 
     scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer,
-        T_max=epochs,
-        eta_min=1e-6,
-    )
+        optimizer, T_max=epochs, eta_min=1e-6)
 
     best_val_acc = 0.0
     history = {
@@ -218,9 +227,8 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
 
     # for montiroing when overfitting starts
     # overfitting defined as 5 consecutive epochs without validation improvement
-    monitor = "val_loss" 
-    patience = 5           
-    best_val_metric = float("inf") 
+    patience = 5        
+    best_val_metric = float("inf")
     epochs_since_improvement = 0
 
 
@@ -232,7 +240,7 @@ def run_training(epochs: int = 5, with_augmentation: bool =False, lr: float = 1e
         # get loss and other metrics for validation
         val_loss, val_acc, val_f1, val_top5, val_cm, val_labels, val_predictions = validate_one_epoch(model, val_loader, criterion, device)
 
-        # update overfitting monitor
+        # update overfitting
         current_metric = val_loss 
 
         if current_metric < best_val_metric:
