@@ -151,7 +151,7 @@ def validate_one_epoch(model, dataloader, criterion, device):
 # the * makes teh keyword arguments mandatory
 def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained: bool =True, is_frozen: bool =True,  lr: float = 1e-3, device: str = config.DEVICE,
                     # wandb (experiment metadata)
-                    wandb_project: str = "baseline-resnet-18",
+                    wandb_project: str = "x-AI-Proj-ImageClassification",
                     wandb_group: str | None = None,
                     wandb_name: str | None = None,
                     run_type: str = "baseline", ):
