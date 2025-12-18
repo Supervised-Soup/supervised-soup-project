@@ -131,7 +131,7 @@ def get_dataloaders(
         num_workers=num_workers,
         pin_memory=pin,
         persistent_workers=num_workers > 0,
-        drop_last=True,
+        drop_last=False,
     )
 
     return train_loader, val_loader
