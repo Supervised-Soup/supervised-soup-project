@@ -40,6 +40,82 @@ def per_class_accuracy(cm):
         acc[i] = correct / total if total > 0 else 0.0
     return acc
 
+# function that builds an optimizer
+def build_optimizer(
+    optimizer_name: str,
+    params,
+    lr: float,
+    weight_decay: float = 1e-4,
+    momentum: float = 0.9,
+):
+    """
+    Builds optimizer based on optimizer_name.
+    Not sure, which optimizers we want to use in the end, so I added the ones we've discussed.
+    Supported:
+        - "sgd"
+        - "adam"
+        - "adamw"
+        - "adagrad"
+        - "rmsprop"
+    """
+    name = optimizer_name.lower()
+
+    if name == "sgd":
+        return optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
+
+    elif name == "adam":
+        return optim.Adam(params, lr=lr, weight_decay=weight_decay)
+
+    elif name == "adamw":
+        return optim.AdamW(params, lr=lr, weight_decay=weight_decay)
+
+    elif name == "adagrad":
+        return optim.Adagrad(params, lr=lr, weight_decay=weight_decay)
+
+    elif name == "rmsprop":
+        return optim.RMSprop(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
+
+    else:
+        raise ValueError(
+            f"Unknown optimizer: {optimizer_name}. "
+            f"Choose from: sgd, adam, adamw, adagrad, rmsprop."
+        )
+    
+
+# function that builds a scheduler
+def build_scheduler(
+    scheduler_name: str,
+    optimizer,
+    epochs: int,
+    step_size: int = 10,
+    gamma: float = 0.1,
+):
+    """
+    Builds a learning rate scheduler.
+    As far as I remember we've only discussed cosine annealing so far.
+    Supported:
+        - "none"
+        - "cosine"
+    """
+    name = scheduler_name.lower()
+
+    if name in ["none", "", "null"]:
+        return None
+
+    if name == "cosine":
+        return optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    else:
+        raise ValueError(
+            f"Unknown scheduler: {scheduler_name}. "
+            f"Choose from: none, cosine."
+        )
+    
+
+
+
+def save_checkpoint(model, optimizer, epoch, loss):
+    """ Saves a model checkpoint"""
 
 # log best cm (best epoch)
 def log_best_confusion_matrix(
@@ -181,17 +257,29 @@ def validate_one_epoch(model, dataloader, criterion, device):
 # TODO: refactor optimizer and scheduler creation to work with EXPERIMENT_CONFIG
 
 # the * makes the keyword arguments mandatory
-def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained: bool =True, freeze_layers: bool =True,  lr: float = 1e-3, device: str = config.DEVICE, seed: int = config.SEED,
-                    # wandb (experiment metadata)
-                    wandb_project: str = "x-AI-Proj-ImageClassification",
-                    wandb_group: str | None = None,
-                    wandb_name: str | None = None,
-                    run_type: str = "baseline",
-                     # for resuming from last checkpoint, in case
-                    resume: bool = False,
-                    experiment_config=None,
-                    freeze_until: str | None = None,
-                    model_name: str = "resnet18",):
+def run_training(*, 
+                epochs: int = 5, 
+                with_augmentation: bool =False, 
+                pretrained: bool =True, 
+                freeze_layers: bool =True,  
+                lr: float = 1e-3, 
+                device: str = config.DEVICE, 
+                seed: int = config.SEED,
+                # wandb (experiment metadata)
+                wandb_project: str = "x-AI-Proj-ImageClassification",
+                wandb_group: str | None = None,
+                wandb_name: str | None = None,
+                run_type: str = "baseline",
+                # for resuming from last checkpoint, in case
+                resume: bool = False,
+                experiment_config=None,
+                freeze_until: str | None = None,
+                model_name: str = "resnet18",
+                optimizer_name: str = "sgd",  # I put sgd as a default value
+                scheduler_name: str = "cosine",
+                weight_decay: float = 1e-4,
+                momentum: float = 0.9,
+):
     """
     Main training function:
     - loads dataloaders
@@ -311,6 +399,10 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
     best_val_labels = None
     best_val_predictions = None
 
+    print(
+        f"Starting training | optimizer={optimizer_name} | scheduler={scheduler_name} | "
+        f"lr={lr} | epochs={epochs} | pretrained={pretrained} | freeze_layers={freeze_layers}"
+    )
 
 
     for epoch in range(start_epoch, epochs):
@@ -426,8 +518,14 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
 
 
 
-    wandb.finish()
-    print(f"Training complete. Best Validation Acc was = {best_val_acc:.4f}.  Best Validation Loss was = {best_val_loss:.4f}")
+        if scheduler is not None:
+            if scheduler_name.lower() == "plateau":
+                scheduler.step(val_loss)
+            else:
+                scheduler.step()
+
+
+    print(f"Training complete. Best Validation Acc = {best_val_acc:.4f}")
     return model, history
 
 
