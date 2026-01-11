@@ -9,7 +9,6 @@ import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torchvision import models
 
 import wandb
@@ -19,6 +18,9 @@ import supervised_soup.config as config
 from supervised_soup import seed as seed_module
 from supervised_soup.models.model import build_model
 from supervised_soup import checkpoints
+
+from supervised_soup.optimizers import build_optimizer
+from supervised_soup.schedulers import build_scheduler
 
 
 from sklearn.metrics import accuracy_score, f1_score, top_k_accuracy_score, confusion_matrix
@@ -39,111 +41,6 @@ def per_class_accuracy(cm):
         total = cm[i].sum()
         acc[i] = correct / total if total > 0 else 0.0
     return acc
-
-# function that builds an optimizer
-def build_optimizer(
-    optimizer_name: str,
-    params,
-    lr: float,
-    weight_decay: float = 1e-4,
-    momentum: float = 0.9,
-):
-    """
-    Builds optimizer based on optimizer_name.
-    Not sure, which optimizers we want to use in the end, so I added the ones we've discussed.
-    Supported:
-        - "sgd"
-        - "adam"
-        - "adamw"
-        - "adagrad"
-        - "rmsprop"
-    """
-    name = optimizer_name.lower()
-
-    if name == "sgd":
-        return optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
-
-    elif name == "adam":
-        return optim.Adam(params, lr=lr, weight_decay=weight_decay)
-
-    elif name == "adamw":
-        return optim.AdamW(params, lr=lr, weight_decay=weight_decay)
-
-    elif name == "adagrad":
-        return optim.Adagrad(params, lr=lr, weight_decay=weight_decay)
-
-    elif name == "rmsprop":
-        return optim.RMSprop(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
-
-    else:
-        raise ValueError(
-            f"Unknown optimizer: {optimizer_name}. "
-            f"Choose from: sgd, adam, adamw, adagrad, rmsprop."
-        )
-    
-
-# function that builds a scheduler
-def build_scheduler(scheduler_name, optimizer, epochs, **kwargs):
-    """
-    LR schedulers.
-    Supported schedulers:
-      - none
-      - cosine
-      - cosine_warm
-      - step
-      - multistep
-      - plateau
-    """
-
-    name = scheduler_name.lower()
-
-    if name in ["none", "", "null"]:
-        return None
-
-    if name == "cosine":
-        eta_min = kwargs.get("eta_min", 1e-6)
-        return optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=epochs, eta_min=eta_min
-        )
-
-    elif name == "cosine_warm":
-        t_0 = kwargs.get("t_0", 10)
-        t_mult = kwargs.get("t_mult", 1)
-        eta_min = kwargs.get("eta_min", 1e-6)
-        return optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, T_0=t_0, T_mult=t_mult, eta_min=eta_min
-        )
-
-    elif name == "step":
-        step_size = kwargs.get("step_size", max(1, epochs // 3))
-        gamma = kwargs.get("gamma", 0.1)
-        return optim.lr_scheduler.StepLR(
-            optimizer, step_size=step_size, gamma=gamma
-        )
-
-    elif name == "multistep":
-        milestones = kwargs.get(
-            "milestones", [epochs // 2, int(epochs * 0.75)]
-        )
-        gamma = kwargs.get("gamma", 0.1)
-        return optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=milestones, gamma=gamma
-        )
-
-    elif name == "plateau":
-        factor = kwargs.get("factor", 0.1)
-        patience = kwargs.get("patience", 3)
-        min_lr = kwargs.get("min_lr", 1e-6)
-        return optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=factor, patience=patience, min_lr=min_lr
-        )
-
-    else:
-        raise ValueError(
-            f"Unknown scheduler: {scheduler_name}. "
-            f"Choose from: none, cosine, cosine_warm, step, multistep, plateau."
-        )
-
 
 def save_checkpoint(model, optimizer, epoch, loss):
     """ Saves a model checkpoint"""
@@ -311,7 +208,8 @@ def run_training(*,
                 weight_decay: float = 1e-4,
                 momentum: float = 0.9,
                 scheduler_kwargs: dict | None = None,
-
+                use_label_smoothing: bool = False,
+                label_smoothing: float = 0.1,
 ):
     """
     Main training function:
@@ -406,6 +304,16 @@ def run_training(*,
 
     # Check for resume
     assert 0 <= start_epoch < epochs, f"Invalid start_epoch={start_epoch} for epochs={epochs}"
+    ls = 0.0
+    if use_label_smoothing:
+        if not (0.0 <= label_smoothing < 1.0):
+            raise ValueError("label_smoothing must be in [0.0, 1.0).")
+        ls = label_smoothing
+    criterion = nn.CrossEntropyLoss(label_smoothing=ls)
+
+
+    print(f"Loss = CrossEntropy (label_smoothing={ls})")
+
     
 
     # Scheduler
