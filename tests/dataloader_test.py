@@ -42,7 +42,7 @@ def test_class_mapping():
 
 # test that the new augmentation presets work
 def test_augmentation_presets():
-    presets = ["light", "strong", "autoaugment"]
+    presets = ["light", "medium", "strong", "autoaugment"]
 
     for preset in presets:
         print(f"\n--- Testing augmentation preset: {preset} ---")
@@ -153,7 +153,19 @@ visualize_batch()
 
 # quick visual check for presets
 visualize_batch_augmented("light")
+visualize_batch_augmented("medium")
 visualize_batch_augmented("strong", {"noise_std": 0.03, "random_erasing_p": 0.5})
 visualize_batch_augmented("autoaugment")
 
+# quick reproucibility test for get_dataloaders with seed_workers
+def test_reproducibility():
+    loader1, _ = get_dataloaders(with_augmentation=True, augmentation_preset="light")
+    loader2, _ = get_dataloaders(with_augmentation=True, augmentation_preset="light")
+    
+    batch1, _ = next(iter(loader1))
+    batch2, _ = next(iter(loader2))
+    
+    assert torch.allclose(batch1, batch2), "Batches differ despite fixed seed!"
+    print("Reproducibility test passed.")
 
+test_reproducibility()

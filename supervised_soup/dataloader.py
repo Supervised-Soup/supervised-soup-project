@@ -62,20 +62,8 @@ validation_transforms = transforms.Compose([
 # since we are doing NO augmentations for the baseline, they are the same as validation transforms
 baseline_transforms = validation_transforms
 
-<<<<<<< HEAD
-# transform images for later training (including augmentations)
-# we can add and adjust the particular augmentations later
-train_transforms = transforms.Compose([
-    transforms.RandomResizedCrop(224),
-    transforms.RandomHorizontalFlip(),
-    transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05),
-    transforms.ToTensor(),
-    transforms.Normalize(
-        mean=MEAN,
-        std=STD
-    )
-])
-=======
+
+
 # Helpers for augmentations
 def _gaussian_noise(std: float = 0.02):
     """
@@ -93,69 +81,62 @@ def _gaussian_noise(std: float = 0.02):
 def build_train_transforms(
     preset: str = "light",
     *,
+    rotation_deg: float = 10.0,
+    translate_frac: float = 0.05,
+    color_jitter_strength: float = 0.1,
     noise_std: float = 0.02,
     random_erasing_p: float = 0.25,
 ):
     """
-    Build train transforms based on a preset.
+    Builds training transforms for different augmentation levels.
 
     Presets:
-      - "light": crop + flip + mild color jitter
-      - "strong": light + rotation + translation + noise + random erasing
-      - "autoaugment": crop + flip + AutoAugment(ImageNet) + random erasing
+      - light: crop + flip + mild color jitter
+      - medium: light + rotation + translation
+      - strong: medium + Gaussian noise + RandomErasing
+      - autoaugment: crop + flip + AutoAugment + RandomErasing
     """
+
     preset = (preset or "light").lower()
+    if preset not in {"light", "medium", "strong", "autoaugment"}:
+        raise ValueError(f"Unknown preset: {preset}")
 
-    if preset not in {"light", "strong", "autoaugment"}:
-        raise ValueError(
-            f"Unknown augmentation preset: {preset}. "
-            f"Choose from: light, strong, autoaugment."
-        )
+  
 
-    common = [
+    # Pixel-space transforms
+    
+    light_pixel_transforms = [
         transforms.RandomResizedCrop(224, interpolation=InterpolationMode.BILINEAR),
         transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(
+            brightness=color_jitter_strength,
+            contrast=color_jitter_strength,
+            saturation=color_jitter_strength,
+            hue=0.05,
+        ),
     ]
 
-    if preset in {"light", "strong"}:
-        # stand-in for “color jittering / lighting changes”
-        color = [
-            transforms.ColorJitter(
-                brightness=0.2,
-                contrast=0.2,
-                saturation=0.2,
-                hue=0.05,
-            )
-        ]
-    else:
-        color = []
+    medium_pixel_transforms = light_pixel_transforms + [
+        transforms.RandomRotation(rotation_deg),
+        transforms.RandomAffine(degrees=0, translate=(translate_frac, translate_frac)),
+    ]
 
-    if preset == "strong":
-        geom = [
-            # rotation 
-            transforms.RandomRotation(degrees=25, interpolation=InterpolationMode.BILINEAR),
-            # translation / shifting
-            transforms.RandomAffine(
-                degrees=0,
-                translate=(0.1, 0.1),
-                interpolation=InterpolationMode.BILINEAR,
-            ),
-        ]
-        noise = [transforms.Lambda(_gaussian_noise(std=noise_std))]
-        auto = []
-    elif preset == "autoaugment":
-        geom = []
-        noise = []
-        auto = [transforms.AutoAugment(policy=transforms.AutoAugmentPolicy.IMAGENET)]
-    else:
-        geom = []
-        noise = []
-        auto = []
+    strong_pixel_transforms = medium_pixel_transforms.copy()
 
-    tail = [
-        transforms.ToTensor(),
-        *noise,
-        transforms.Normalize(mean=MEAN, std=STD),
+    autoaugment_pixel_transforms = [
+        transforms.RandomResizedCrop(224, interpolation=InterpolationMode.BILINEAR),
+        transforms.RandomHorizontalFlip(),
+        transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
+    ]
+
+    
+    # Tensor-space transforms
+    
+    light_tensor_transforms = [transforms.ToTensor()]
+    medium_tensor_transforms = light_tensor_transforms.copy()
+
+    strong_tensor_transforms = medium_tensor_transforms + [
+        transforms.Lambda(_gaussian_noise(std=noise_std)),
         transforms.RandomErasing(
             p=random_erasing_p,
             scale=(0.02, 0.33),
@@ -163,12 +144,44 @@ def build_train_transforms(
             value="random",
         ),
     ]
+    autoaugment_tensor_transforms = [transforms.ToTensor(),
+                                     transforms.RandomErasing(
+                                         p=random_erasing_p,
+                                         scale=(0.02, 0.33),
+                                         ratio=(0.3, 3.3),
+                                         value="random"
+                                     )]
 
-    return transforms.Compose(common + color + geom + auto + tail)
+    
+
+    # normalize last
+    for t in [light_tensor_transforms, medium_tensor_transforms, strong_tensor_transforms, autoaugment_tensor_transforms]:
+        t.append(transforms.Normalize(mean=MEAN, std=STD))
+
+    # define first to get rid of pylint error
+    pixel_transforms = None
+    tensor_transforms = None
+    # Select preset
+    if preset == "light":
+        pixel_transforms = light_pixel_transforms
+        tensor_transforms = light_tensor_transforms
+    elif preset == "medium":
+        pixel_transforms = medium_pixel_transforms
+        tensor_transforms = medium_tensor_transforms
+    elif preset == "strong":
+        pixel_transforms = strong_pixel_transforms
+        tensor_transforms = strong_tensor_transforms
+    elif preset == "autoaugment":
+        pixel_transforms = autoaugment_pixel_transforms
+        tensor_transforms = autoaugment_tensor_transforms
+
+    return transforms.Compose(pixel_transforms + tensor_transforms)
+
+
 
 # default augmented transforms 
 train_transforms = build_train_transforms("light")
->>>>>>> 099a4ca (Added new augmentations)
+
 
 def get_dataloaders(
     data_path=config.DATA_PATH,
