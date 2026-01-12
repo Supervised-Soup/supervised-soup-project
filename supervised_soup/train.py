@@ -212,8 +212,11 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
 
     # load Data
     train_loader, val_loader = get_dataloaders(
-        with_augmentation=with_augmentation
-    )
+    with_augmentation=with_augmentation,
+    augmentation_preset=experiment_config.get("augmentation_preset", "light") if experiment_config else "light",
+    augmentation_kwargs=experiment_config.get("augmentation_kwargs", {}) if experiment_config else None,
+)
+
 
     ## initialize wandb
     wandb.init(
@@ -237,6 +240,12 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
     wandb.run.summary["model"] = model_name
     wandb.run.summary["frozen_backbone"] = freeze_layers
     wandb.run.summary["freeze_until"] = freeze_until
+    wandb.run.summary["augmentation"] = {
+    "with_augmentation": with_augmentation,
+    "augmentation_preset": experiment_config.get("augmentation_preset", "light") if experiment_config else "light",
+    "augmentation_kwargs": experiment_config.get("augmentation_kwargs", {}) if experiment_config else {}
+}
+
 
 
     model = build_model(
