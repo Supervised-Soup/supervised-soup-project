@@ -7,12 +7,14 @@ from __future__ import annotations
 import torch
 import torch.optim as optim
 
+from collections.abc import Iterable
+
 
 def build_optimizer(
     optimizer_name: str,
-    params,
+    params: Iterable[torch.nn.Parameter],
     lr: float,
-    weight_decay: float = 1e-4,
+    weight_decay: float = 0.0,
     momentum: float = 0.9,
 ) -> optim.Optimizer:
     """
@@ -26,6 +28,15 @@ def build_optimizer(
         - "rmsprop"
     """
     name = optimizer_name.lower()
+    
+    # Avoid iterating over frozen parameters
+    trainable_params = [p for p in params if p.requires_grad]
+
+    if len(trainable_params) == 0:
+        raise ValueError(
+            "No trainable parameters found (all params have requires_grad=False). "
+            "Did you freeze the entire model by accident?"
+        )
 
     if name == "sgd":
         return optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)

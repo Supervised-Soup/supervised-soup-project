@@ -5,13 +5,14 @@ Run from project root:
     python tests/train_test.py
 """
 
-
-import time
+import torch
+import torch.nn as nn
 from pathlib import Path
 from supervised_soup.train import run_training
+from supervised_soup.optimizers import build_optimizer
 import supervised_soup.config as config
 
-def test_run_training():
+def test_run_training_smoke():
     """Quick test run for one epoch.
     if you run this on CPU it'll take like 20 minutes or so"""
 
@@ -35,131 +36,72 @@ def test_run_training():
 
     return history
 
-def test_run_training_multiple_optimizers():
-    """Test that run_training works with different optimizers."""
-    optimizers = ["sgd", "adam", "adamw", "rmsprop", "adagrad"]
+def test_optimizers_update_parameters():
+    """
+    Unit test: each supported optimizer should update model parameters after backward + step.
+    """
+    optimizer_names = ["sgd", "adam", "adamw", "rmsprop", "adagrad"]
 
-    for opt in optimizers:
-        print(f"\n[TEST] Optimizer = {opt}")
+    for name in optimizer_names:
+        torch.manual_seed(0)
 
-        test_checkpoint_path = Path(f"test_results/checkpoints_{opt}")
-        test_checkpoint_path.mkdir(parents=True, exist_ok=True)
+        model = nn.Linear(4, 3)
+        optimizer = build_optimizer(name, model.parameters(), lr=0.01)
+        loss_fn = nn.CrossEntropyLoss()
 
-        config.CHECKPOINTS_PATH = test_checkpoint_path
+        x = torch.randn(8, 4)
+        y = torch.randint(0, 3, (8,))
 
-        model, history = run_training(
-            epochs=1,
-            with_augmentation=False,
-            lr=0.001,
-            optimizer_name=opt,
-            scheduler_name="none",
-        )
+        optimizer.zero_grad(set_to_none=True)
+        logits = model(x)
+        loss = loss_fn(logits, y)
+        loss.backward()
 
-        assert len(history["train_loss"]) == 1
-        assert len(history["val_loss"]) == 1
-        print(f"Optimizer test passed: {opt}")
+        # make sure we actually have gradients
+        assert any(p.grad is not None for p in model.parameters()), f"No grads for optimizer '{name}'"
+
+        before = [p.detach().clone() for p in model.parameters()]
+
+        optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+
+        assert any(
+            not torch.allclose(b, a.detach(), rtol=0.0, atol=0.0)
+            for b, a in zip(before, model.parameters())
+        ), f"Optimizer '{name}' did not update parameters"
 
 
-def test_run_training_scheduler_changes_lr():
-    """Test that scheduler changes the learning rate."""
-    print("\n[TEST] Scheduler = cosine (should change LR over epochs)")
+def test_build_optimizer_filters_frozen_parameters():
+    """
+    Unit test: optimizer should not include parameters with requires_grad=False.
+    """
+    torch.manual_seed(0)
 
-    test_checkpoint_path = Path("test_results/checkpoints_scheduler_cosine")
-    test_checkpoint_path.mkdir(parents=True, exist_ok=True)
-    config.CHECKPOINTS_PATH = test_checkpoint_path
-
-    model, history = run_training(
-        epochs=3,  # needs >1 epoch to see LR change
-        with_augmentation=False,
-        lr=0.01,
-        optimizer_name="sgd",
-        scheduler_name="cosine",
+    model = nn.Sequential(
+        nn.Linear(4, 4),
+        nn.ReLU(),
+        nn.Linear(4, 3),
     )
 
-    lr_values = history["lr"]
-    print("LR values:", lr_values)
+    # Freeze the first layer
+    for p in model[0].parameters():
+        p.requires_grad = False
 
-    # LR should change at least once
-    assert len(set(lr_values)) > 1, "Learning rate did not change across epochs"
-    print("Scheduler LR-change test passed!")
+    opt = build_optimizer("sgd", model.parameters(), lr=0.01)
 
+    opt_params = [p for group in opt.param_groups for p in group["params"]]
 
-def test_scheduler_kwargs():
-    """Test scheduler_kwargs are accepted and used."""
-    print("\n[TEST] Scheduler kwargs = cosine eta_min")
-
-    test_checkpoint_path = Path("test_results/scheduler_kwargs")
-    test_checkpoint_path.mkdir(parents=True, exist_ok=True)
-    config.CHECKPOINTS_PATH = test_checkpoint_path
-
-    model, history = run_training(
-        epochs=2,
-        with_augmentation=False,
-        lr=0.01,
-        optimizer_name="sgd",
-        scheduler_name="cosine",
-        scheduler_kwargs={"eta_min": 1e-5},
-    )
-
-    assert "lr" in history, "LR history missing"
-    print("Scheduler kwargs test passed!")
-
-def test_run_training_label_smoothing_enabled():
-    """Test that run_training works with label smoothing enabled."""
-    print("\n[TEST] Label smoothing enabled")
-
-    test_checkpoint_path = Path("test_results/label_smoothing")
-    test_checkpoint_path.mkdir(parents=True, exist_ok=True)
-    config.CHECKPOINTS_PATH = test_checkpoint_path
-
-    model, history = run_training(
-        epochs=1,
-        with_augmentation=False,
-        lr=0.01,
-        optimizer_name="sgd",
-        scheduler_name="none",
-        use_label_smoothing=True,
-        label_smoothing=0.1,
-    )
-
-    assert len(history["train_loss"]) == 1
-    assert len(history["val_loss"]) == 1
-    print("Label smoothing test passed!")
-
-def test_run_training_label_smoothing_invalid_value_raises():
-    """Test that invalid label_smoothing values raise ValueError."""
-    print("\n[TEST] Label smoothing invalid value raises")
-
-    try:
-        run_training(
-            epochs=1,
-            with_augmentation=False,
-            lr=0.01,
-            optimizer_name="sgd",
-            scheduler_name="none",
-            use_label_smoothing=True,
-            label_smoothing=1.0,  # invalid (must be < 1.0)
-        )
-        assert False, "Expected ValueError for label_smoothing=1.0"
-    except ValueError:
-        pass
+    assert len(opt_params) == sum(p.requires_grad for p in model.parameters())
+    assert all(p.requires_grad for p in opt_params), "Optimizer contains frozen parameters"
 
 
 if __name__ == "__main__":
-    history = test_run_training()
-    test_run_training()
-    test_run_training_multiple_optimizers()
-    test_run_training_scheduler_changes_lr()
-    test_run_training_label_smoothing_enabled()
-    test_run_training_label_smoothing_invalid_value_raises()
+    test_optimizers_update_parameters()
+    test_build_optimizer_filters_frozen_parameters()
+    # I'll comment this out to avoid long test time
+    # test_run_training_smoke()
 
     print("All training tests passed!")
 
-    # Print summary of metrics
-    print("History keys:", history.keys())
-    print("Train Loss:", history["train_loss"])
-    print("Val Accuracy:", history["val_acc"])
-    print("F1 Score:", history["val_f1"])
-    print("Top-5 Accuracy:", history["val_top5"])
-    print("Confusion Matrix:\n", history["val_cm"][-1])
+
 

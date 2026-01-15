@@ -460,12 +460,7 @@ def run_training(*,
         history["val_roc_auc_macro"].append(val_roc_auc_macro)
 
 
-
         if scheduler is not None:
-            if scheduler_name.lower() == "plateau":
-                scheduler.step(val_loss)
-            else:
-                scheduler.step()
             if scheduler_name.lower() == "plateau":
                 scheduler.step(val_loss)
             else:
