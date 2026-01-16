@@ -39,19 +39,19 @@ def build_optimizer(
         )
 
     if name == "sgd":
-        return optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
+        return optim.SGD(trainable_params, lr=lr, momentum=momentum, weight_decay=weight_decay)
 
     if name == "adam":
-        return optim.Adam(params, lr=lr, weight_decay=weight_decay)
+        return optim.Adam(trainable_params, lr=lr, weight_decay=weight_decay)
 
     if name == "adamw":
-        return optim.AdamW(params, lr=lr, weight_decay=weight_decay)
+        return optim.AdamW(trainable_params, lr=lr, weight_decay=weight_decay)
 
     if name == "adagrad":
-        return optim.Adagrad(params, lr=lr, weight_decay=weight_decay)
+        return optim.Adagrad(trainable_params, lr=lr, weight_decay=weight_decay)
 
     if name == "rmsprop":
-        return optim.RMSprop(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
+        return optim.RMSprop(trainable_params, lr=lr, momentum=momentum, weight_decay=weight_decay)
 
     raise ValueError(
         f"Unknown optimizer: {optimizer_name}. "
