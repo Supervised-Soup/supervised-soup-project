@@ -5,7 +5,7 @@ Run (pytest):
     pytest -k train_smoke
 
 Run (python):
-    python tests/test_train_smoke.py
+    python tests/train_smoke_test.py
 """
 
 from pathlib import Path

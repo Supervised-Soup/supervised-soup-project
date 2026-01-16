@@ -283,9 +283,15 @@ def run_training(*,
 
     # Loss function and optimizer: set to CrossEntropy and SGD for now
     criterion = nn.CrossEntropyLoss()
-    # Added filter to avoid iterating over frozen parameters
-    optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
-        lr=lr, momentum=0.9,)
+    
+    optimizer = build_optimizer(
+        optimizer_name=optimizer_name,
+        params=model.parameters(),
+        lr=lr,
+        weight_decay=weight_decay,
+        momentum=momentum,
+    )
+
 
 
     # For saving last checkpoint
@@ -319,8 +325,13 @@ def run_training(*,
     
 
     # Scheduler
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=epochs, eta_min=1e-6, last_epoch=start_epoch - 1)
+    scheduler = build_scheduler(
+        scheduler_name=scheduler_name,
+        optimizer=optimizer,
+        epochs=epochs,
+        **(scheduler_kwargs or {}),
+)
+
 
 
 
@@ -344,8 +355,11 @@ def run_training(*,
 
     print(
         f"Starting training | optimizer={optimizer_name} | scheduler={scheduler_name} | "
-        f"lr={lr} | epochs={epochs} | pretrained={pretrained} | freeze_layers={freeze_layers}"
+        f"lr={lr} | epochs={epochs} | pretrained={pretrained} | "
+        f"freeze_layers={freeze_layers} | freeze_until={freeze_until} | "
+        f"with_augmentation={with_augmentation}"
     )
+
 
 
     for epoch in range(start_epoch, epochs):
@@ -367,7 +381,13 @@ def run_training(*,
 
 
         overfitting_flag = epochs_since_improvement >= patience
-        scheduler.step()
+
+        if scheduler is not None:
+            if scheduler_name.lower() == "plateau":
+                scheduler.step(val_loss)
+            else:
+                scheduler.step()
+
         current_lr = optimizer.param_groups[0]["lr"]
 
         per_class_acc = per_class_accuracy(val_cm)
@@ -460,15 +480,8 @@ def run_training(*,
         history["val_roc_auc_macro"].append(val_roc_auc_macro)
 
 
-        if scheduler is not None:
-            if scheduler_name.lower() == "plateau":
-                scheduler.step(val_loss)
-            else:
-                scheduler.step()
 
-
-
-    print(f"Training complete. Best Validation Acc = {best_val_acc:.4f}")
+    print(f"Training complete. Best Validation Acc = {best_val_acc:.4f}. Best Validation Loss was = {best_val_loss:.4f}")
     return model, history
 
 
