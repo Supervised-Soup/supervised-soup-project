@@ -382,12 +382,6 @@ def run_training(*,
 
         overfitting_flag = epochs_since_improvement >= patience
 
-        if scheduler is not None:
-            if scheduler_name.lower() == "plateau":
-                scheduler.step(val_loss)
-            else:
-                scheduler.step()
-
         current_lr = optimizer.param_groups[0]["lr"]
 
         per_class_acc = per_class_accuracy(val_cm)
@@ -479,6 +473,11 @@ def run_training(*,
         history["val_cm"].append(val_cm)
         history["val_roc_auc_macro"].append(val_roc_auc_macro)
 
+        if scheduler is not None:
+            if scheduler_name.lower() == "plateau":
+                scheduler.step(val_loss)
+            else:
+                scheduler.step()
 
 
     print(f"Training complete. Best Validation Acc = {best_val_acc:.4f}. Best Validation Loss was = {best_val_loss:.4f}")
