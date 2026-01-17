@@ -9,8 +9,9 @@ import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torchvision import models
+import torch.optim as optim
+
 
 import wandb
 
@@ -19,6 +20,9 @@ import supervised_soup.config as config
 from supervised_soup import seed as seed_module
 from supervised_soup.models.model import build_model
 from supervised_soup import checkpoints
+
+from supervised_soup.optimizers import build_optimizer
+from supervised_soup.schedulers import build_scheduler
 
 
 from sklearn.metrics import accuracy_score, f1_score, top_k_accuracy_score, confusion_matrix
@@ -40,6 +44,8 @@ def per_class_accuracy(cm):
         acc[i] = correct / total if total > 0 else 0.0
     return acc
 
+def save_checkpoint(model, optimizer, epoch, loss):
+    """ Saves a model checkpoint"""
 
 # log best cm (best epoch)
 def log_best_confusion_matrix(
@@ -181,17 +187,32 @@ def validate_one_epoch(model, dataloader, criterion, device):
 # TODO: refactor optimizer and scheduler creation to work with EXPERIMENT_CONFIG
 
 # the * makes the keyword arguments mandatory
-def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained: bool =True, freeze_layers: bool =True,  lr: float = 1e-3, device: str = config.DEVICE, seed: int = config.SEED,
-                    # wandb (experiment metadata)
-                    wandb_project: str = "x-AI-Proj-ImageClassification",
-                    wandb_group: str | None = None,
-                    wandb_name: str | None = None,
-                    run_type: str = "baseline",
-                     # for resuming from last checkpoint, in case
-                    resume: bool = False,
-                    experiment_config=None,
-                    freeze_until: str | None = None,
-                    model_name: str = "resnet18",):
+def run_training(*, 
+                epochs: int = 5, 
+                with_augmentation: bool =False, 
+                pretrained: bool =True, 
+                freeze_layers: bool =True,  
+                lr: float = 1e-3, 
+                device: str = config.DEVICE, 
+                seed: int = config.SEED,
+                # wandb (experiment metadata)
+                wandb_project: str = "x-AI-Proj-ImageClassification",
+                wandb_group: str | None = None,
+                wandb_name: str | None = None,
+                run_type: str = "baseline",
+                # for resuming from last checkpoint, in case
+                resume: bool = False,
+                experiment_config=None,
+                freeze_until: str | None = None,
+                model_name: str = "resnet18",
+                optimizer_name: str = "sgd",  # I put sgd as a default value
+                scheduler_name: str = "cosine",
+                weight_decay: float = 1e-4,
+                momentum: float = 0.9,
+                scheduler_kwargs: dict | None = None,
+                use_label_smoothing: bool = False,
+                label_smoothing: float = 0.1,
+):
     """
     Main training function:
     - loads dataloaders
@@ -262,9 +283,15 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
 
     # Loss function and optimizer: set to CrossEntropy and SGD for now
     criterion = nn.CrossEntropyLoss()
-    # Added filter to avoid iterating over frozen parameters
-    optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
-        lr=lr, momentum=0.9,)
+    
+    optimizer = build_optimizer(
+        optimizer_name=optimizer_name,
+        params=model.parameters(),
+        lr=lr,
+        weight_decay=weight_decay,
+        momentum=momentum,
+    )
+
 
 
     # For saving last checkpoint
@@ -285,11 +312,26 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
 
     # Check for resume
     assert 0 <= start_epoch < epochs, f"Invalid start_epoch={start_epoch} for epochs={epochs}"
+    ls = 0.0
+    if use_label_smoothing:
+        if not (0.0 <= label_smoothing < 1.0):
+            raise ValueError("label_smoothing must be in [0.0, 1.0).")
+        ls = label_smoothing
+    criterion = nn.CrossEntropyLoss(label_smoothing=ls)
+
+
+    print(f"Loss = CrossEntropy (label_smoothing={ls})")
+
     
 
     # Scheduler
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=epochs, eta_min=1e-6, last_epoch=start_epoch - 1)
+    scheduler = build_scheduler(
+        scheduler_name=scheduler_name,
+        optimizer=optimizer,
+        epochs=epochs,
+        **(scheduler_kwargs or {}),
+)
+
 
 
 
@@ -310,6 +352,13 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
     best_cm = None
     best_val_labels = None
     best_val_predictions = None
+
+    print(
+        f"Starting training | optimizer={optimizer_name} | scheduler={scheduler_name} | "
+        f"lr={lr} | epochs={epochs} | pretrained={pretrained} | "
+        f"freeze_layers={freeze_layers} | freeze_until={freeze_until} | "
+        f"with_augmentation={with_augmentation}"
+    )
 
 
 
@@ -332,7 +381,7 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
 
 
         overfitting_flag = epochs_since_improvement >= patience
-        scheduler.step()
+
         current_lr = optimizer.param_groups[0]["lr"]
 
         per_class_acc = per_class_accuracy(val_cm)
@@ -424,10 +473,14 @@ def run_training(*, epochs: int = 5, with_augmentation: bool =False, pretrained:
         history["val_cm"].append(val_cm)
         history["val_roc_auc_macro"].append(val_roc_auc_macro)
 
+        if scheduler is not None:
+            if scheduler_name.lower() == "plateau":
+                scheduler.step(val_loss)
+            else:
+                scheduler.step()
 
 
-    wandb.finish()
-    print(f"Training complete. Best Validation Acc was = {best_val_acc:.4f}.  Best Validation Loss was = {best_val_loss:.4f}")
+    print(f"Training complete. Best Validation Acc = {best_val_acc:.4f}. Best Validation Loss was = {best_val_loss:.4f}")
     return model, history
 
 
