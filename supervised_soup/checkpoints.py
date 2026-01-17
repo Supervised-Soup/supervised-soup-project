@@ -131,7 +131,7 @@ def try_resume_from_wandb(*, device: torch.device,):
             type="checkpoint",
         )
     except wandb.errors.CommError:
-        # no artifact found or not reachable
+        print("W&B artifact not found.")
         return None
 
     artifact_dir = artifact.download()
@@ -143,3 +143,38 @@ def try_resume_from_wandb(*, device: torch.device,):
     return torch.load(checkpoint_path, map_location=device)
 
 
+def load_best_checkpoint(*, device: torch.device):
+    """
+    Loads the best checkpoint from W&B. 
+
+    Make sure the run-name matches.
+
+    Returns:
+    The checkpoint dict (keys like 'model_state', 'epoch', 'val_acc', etc.) 
+    or None if not found.
+    """
+
+    try:
+        # AAccess the latest best-model artifact for the run
+        artifact = wandb.use_artifact(
+            f"best-model-{wandb.run.name}:latest",
+            type="model"
+        )
+    except wandb.errors.CommError:
+        print("W&B artifact for best checkpoint not found.")
+        return None
+
+    artifact_dir = artifact.download()
+
+    # Build checkpoint path (must match save_best_checkpoint naming)
+    checkpoint_path = os.path.join(artifact_dir, f"best_model_{wandb.run.name}.pt")
+
+    if not os.path.exists(checkpoint_path):
+        print(f"Checkpoint file missing at {checkpoint_path}")
+        return None
+
+    # Load checkpoint dict to device
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+
+    print(f"Loaded best checkpoint from epoch {checkpoint.get('epoch', 'unknown')}")
+    return checkpoint

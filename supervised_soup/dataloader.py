@@ -72,7 +72,6 @@ def get_test_dataloader(
 ):
     """
     Returns a DataLoader for the final test set.
-
     - Uses the same transforms as validation
     - No shuffling
     - No data augmentation
@@ -81,7 +80,7 @@ def get_test_dataloader(
     data_path = Path(data_path)
 
     test_dataset = datasets.ImageFolder(
-        root=data_path / "test",
+        root=data_path / "final_test",
         transform=test_transforms,
     )
 

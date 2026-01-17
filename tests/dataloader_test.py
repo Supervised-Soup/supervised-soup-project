@@ -1,5 +1,6 @@
 
 from supervised_soup.dataloader import get_dataloaders
+from supervised_soup.dataloader import get_test_dataloader
 
 import torch
 import numpy as np
@@ -169,3 +170,36 @@ def test_reproducibility():
     print("Reproducibility test passed.")
 
 test_reproducibility()
+
+
+# these locally only work if you actually have the test set in the right folder location downloaded
+# basic batch test
+def test_testloader_batch():
+    test_loader = get_test_dataloader()
+
+    images, labels = next(iter(test_loader))
+
+    assert images.shape[1:] == (3, 224, 224)
+    assert images.dtype == torch.float32
+    assert labels.ndim == 1
+
+    print("Test loader batch sanity check passed.")
+
+
+test_testloader_batch()
+
+
+# test determinism
+def test_testloader_deterministic():
+    loader1 = get_test_dataloader()
+    loader2 = get_test_dataloader()
+
+    imgs1, labels1 = next(iter(loader1))
+    imgs2, labels2 = next(iter(loader2))
+
+    assert torch.allclose(imgs1, imgs2)
+    assert torch.equal(labels1, labels2)
+
+    print("Test loader determinism check passed.")
+
+test_testloader_deterministic()
