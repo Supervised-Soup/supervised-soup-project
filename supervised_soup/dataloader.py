@@ -62,6 +62,42 @@ validation_transforms = transforms.Compose([
 # since we are doing NO augmentations for the baseline, they are the same as validation transforms
 baseline_transforms = validation_transforms
 
+# test transforms for final test evaluation
+test_transforms = validation_transforms
+
+def get_test_dataloader(
+    data_path=config.DATA_PATH,
+    batch_size=config.BATCH_SIZE,
+    num_workers=config.NUM_WORKERS,
+):
+    """
+    Returns a DataLoader for the final test set.
+
+    - Uses the same transforms as validation
+    - No shuffling
+    - No data augmentation
+    """
+
+    data_path = Path(data_path)
+
+    test_dataset = datasets.ImageFolder(
+        root=data_path / "test",
+        transform=test_transforms,
+    )
+
+    pin = torch.cuda.is_available()
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin,
+        persistent_workers=num_workers > 0,
+        drop_last=False,
+    )
+
+    return test_loader
 
 
 # Helpers for augmentations
