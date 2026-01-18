@@ -59,6 +59,7 @@ def evaluate_model(model, log_to_wandb=True):
     f1 = f1_score(all_labels, all_preds, average="macro")
     top5 = top_k_accuracy_score(all_labels, all_preds, k=5, labels=list(range(num_classes)))
 
+    # Unfortunately we dont have a metrics module yet, so this is sort of redundant here
     # Compute macro AUC-ROC
     try:
         # One-hot encode labels

@@ -184,7 +184,6 @@ def validate_one_epoch(model, dataloader, criterion, device):
     return epoch_loss, epoch_acc, epoch_macro_f1, epoch_top5, epoch_cm, roc_auc_macro_ovr, all_labels, all_predictions
 
 
-# TODO: refactor optimizer and scheduler creation to work with EXPERIMENT_CONFIG
 
 # the * makes the keyword arguments mandatory
 def run_training(*, 
@@ -479,7 +478,8 @@ def run_training(*,
             else:
                 scheduler.step()
 
-
+    wandb.finish()
+    
     print(f"Training complete. Best Validation Acc = {best_val_acc:.4f}. Best Validation Loss was = {best_val_loss:.4f}")
     return model, history
 
