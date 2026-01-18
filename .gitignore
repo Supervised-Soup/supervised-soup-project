@@ -3,6 +3,8 @@
 data/
 results/
 test_results
+wandb/
+artifacts/
 
 # python stf
 __pycache__/

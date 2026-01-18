@@ -21,7 +21,7 @@ model.to(DEVICE)
 metrics = evaluate_model(
     model,
     run_name=TRAIN_RUN_NAME,
-    log_to_wandb=False,
+    log_to_wandb=True,
 )
 
 print("Metrics dict:")

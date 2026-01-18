@@ -58,7 +58,8 @@ def evaluate_model(model, *, run_name: str, log_to_wandb=True):
     # Compute standard metrics
     acc = accuracy_score(all_labels, all_preds)
     f1 = f1_score(all_labels, all_preds, average="macro")
-    top5 = top_k_accuracy_score(all_labels, all_preds, k=5, labels=list(range(num_classes)))
+    # sklearn needs numpy arrays not torch tensors
+    top5 = top_k_accuracy_score(all_labels.numpy(), all_probs.numpy(), k=5, labels=list(range(num_classes)))
 
     # Unfortunately we dont have a metrics module yet, so this is sort of redundant here
     # Compute macro AUC-ROC

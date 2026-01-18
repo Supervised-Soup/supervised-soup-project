@@ -182,7 +182,8 @@ def load_best_checkpoint(*, run_name: str, device: torch.device):
         return None
 
     # Load checkpoint dict to device
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+
 
     print(f"Loaded best checkpoint from epoch {checkpoint.get('epoch', 'unknown')}")
     return checkpoint
