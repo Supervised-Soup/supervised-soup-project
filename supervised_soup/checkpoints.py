@@ -143,7 +143,7 @@ def try_resume_from_wandb(*, device: torch.device,):
     return torch.load(checkpoint_path, map_location=device)
 
 
-def load_best_checkpoint(*, device: torch.device):
+def load_best_checkpoint(*, run_name: str, device: torch.device):
     """
     Loads the best checkpoint from W&B. 
 
@@ -153,11 +153,16 @@ def load_best_checkpoint(*, device: torch.device):
     The checkpoint dict (keys like 'model_state', 'epoch', 'val_acc', etc.) 
     or None if not found.
     """
-
+    
+    if wandb.run is None:
+        raise RuntimeError(
+            "wandb.init() must be called before loading checkpoints"
+        )
+    
     try:
-        # AAccess the latest best-model artifact for the run
+        # Access the latest best-model artifact for the given run
         artifact = wandb.use_artifact(
-            f"best-model-{wandb.run.name}:latest",
+            f"best-model-{run_name}:latest",
             type="model"
         )
     except wandb.errors.CommError:
@@ -167,7 +172,10 @@ def load_best_checkpoint(*, device: torch.device):
     artifact_dir = artifact.download()
 
     # Build checkpoint path (must match save_best_checkpoint naming)
-    checkpoint_path = os.path.join(artifact_dir, f"best_model_{wandb.run.name}.pt")
+    checkpoint_path = os.path.join(
+        artifact_dir,
+        f"best_model_{run_name}.pt"
+    )
 
     if not os.path.exists(checkpoint_path):
         print(f"Checkpoint file missing at {checkpoint_path}")

@@ -7,21 +7,22 @@ from sklearn.metrics import accuracy_score, f1_score, top_k_accuracy_score, roc_
 
 
 
-def evaluate_model(model, log_to_wandb=True):
+def evaluate_model(model, *, run_name: str, log_to_wandb=True):
     """
-    Evaluates the (best-model) cehckpoint on the final test set.
-
-    Returns:
-    - dict of evaluation metrics including accuracy, F1 macro, top-5, macro AUC-ROC, and per-class accuracy
+    Evaluates the best-model checkpoint on the final test set.
     """
 
     device = DEVICE
 
-    # Load the best checkpoint from W&B
-    checkpoint = load_best_checkpoint(device=device)
+    checkpoint = load_best_checkpoint(
+        run_name=run_name,
+        device=device
+    )
+
     if checkpoint is None:
         raise RuntimeError(
-            "Best checkpoint not found. Make sure wandb.run.name matches the training run."
+            f"Best checkpoint not found for run '{run_name}'."
+            "Make sure wandb.init() has been called and the run exists."
         )
 
     # Load model weights and set to eval
