@@ -1,5 +1,5 @@
 # Run with:
-# python -m tests.evaluation_test
+# python -m test_evaluation
 
 import wandb
 from torchvision import models
@@ -7,7 +7,7 @@ from supervised_soup.evaluation import evaluate_model
 from supervised_soup.config import DEVICE
 
 
-TRAIN_RUN_NAME = "resnet18_seed42_pretrained_frozen_noAug_original"
+TRAIN_RUN_NAME = "resnet101_partial_layer2_aug1_presetautoaugment_seed42_dscleaned_PhaseX"
 
 wandb.init(
     project="x-AI-Proj-ImageClassification",
@@ -15,7 +15,7 @@ wandb.init(
     name=f"eval_test_{TRAIN_RUN_NAME}",
 )
 
-model = models.resnet18(num_classes=10)
+model = models.resnet101(num_classes=10)
 model.to(DEVICE)
 
 metrics = evaluate_model(
