@@ -7,7 +7,7 @@ from supervised_soup.evaluation import evaluate_model
 from supervised_soup.config import DEVICE
 
 
-TRAIN_RUN_NAME = "resnet18_seed42_pretrained_frozen_noAug_cleaned"
+TRAIN_RUN_NAME = "resnet18_seed42_pretrained_frozen_noAug_original"
 
 wandb.init(
     project="x-AI-Proj-ImageClassification",

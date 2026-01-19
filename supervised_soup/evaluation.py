@@ -4,6 +4,8 @@ from supervised_soup.config import DEVICE
 import torch
 import wandb
 from sklearn.metrics import accuracy_score, f1_score, top_k_accuracy_score, roc_auc_score
+from sklearn.metrics import confusion_matrix
+import numpy as np
 
 
 
@@ -24,6 +26,14 @@ def evaluate_model(model, *, run_name: str, log_to_wandb=True):
             f"Best checkpoint not found for run '{run_name}'."
             "Make sure wandb.init() has been called and the run exists."
         )
+
+    # Make it clear which run was evaluated
+    if log_to_wandb and wandb.run is not None:
+        wandb.run.summary["eval/source_train_run"] = run_name
+        for k in ["epoch", "val_loss", "val_acc", "val_f1_macro", "val_top5", "val_roc_auc_macro"]:
+            if k in checkpoint:
+                wandb.run.summary[f"eval/best_{k}"] = checkpoint[k]
+
 
     # Load model weights and set to eval
     model.load_state_dict(checkpoint["model_state"])
@@ -91,12 +101,21 @@ def evaluate_model(model, *, run_name: str, log_to_wandb=True):
 
     # Log to W&B
     if log_to_wandb and wandb.run is not None:
-        wandb.run.summary["test_accuracy"] = acc
-        wandb.run.summary["test_f1_macro"] = f1
-        wandb.run.summary["test_top5"] = top5
-        wandb.run.summary["test_roc_auc_macro"] = auc_roc
+        wandb.run.summary["test/accuracy"] = acc
+        wandb.run.summary["test/f1_macro"] = f1
+        wandb.run.summary["test/top5"] = top5
+        wandb.run.summary["test/roc_auc_macro"] = auc_roc
         for cls, acc_cls in per_class_acc.items():
             wandb.run.summary[f"test/{cls}_acc"] = acc_cls
+        
+        # Log confusion matrix once
+        wandb.log({
+        "test/confusion_matrix": wandb.plot.confusion_matrix(
+            y_true=all_labels.numpy(),
+            preds=all_preds.numpy(),
+            class_names=test_loader.dataset.classes,
+            )
+        })
 
     # Print summary
     print("Test results:")
