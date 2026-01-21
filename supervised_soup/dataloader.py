@@ -179,15 +179,6 @@ def build_train_transforms(
             value="random",
         ),
     ]
-    autoaugment_tensor_transforms = [transforms.ToTensor(),
-                                     transforms.RandomErasing(
-                                         p=random_erasing_p,
-                                         scale=(0.02, 0.33),
-                                         ratio=(0.3, 3.3),
-                                         value="random"
-                                     )]
-
-    
 
     # normalize last
     for t in [light_tensor_transforms, medium_tensor_transforms, strong_tensor_transforms, autoaugment_tensor_transforms]:
