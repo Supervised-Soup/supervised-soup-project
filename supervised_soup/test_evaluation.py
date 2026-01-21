@@ -1,13 +1,23 @@
 # Run with:
-# python -m test_evaluation
+# python -m test_evaluation --run-name <wanb run name>
 
+import argparse
 import wandb
 from torchvision import models
 from supervised_soup.evaluation import evaluate_model
 from supervised_soup.config import DEVICE
 
 
-TRAIN_RUN_NAME = "resnet101_partial_layer2_aug1_presetautoaugment_seed42_dscleaned_PhaseX"
+parser = argparse.ArgumentParser(description="Final evaluation of a run")
+parser.add_argument(
+    "--run-name", 
+    type=str, 
+    required=True, 
+    help="wandb run name that should be evaluated on the final test set"
+)
+args = parser.parse_args()
+TRAIN_RUN_NAME = args.run_name
+
 
 wandb.init(
     project="x-AI-Proj-ImageClassification",
