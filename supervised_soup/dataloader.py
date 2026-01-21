@@ -180,6 +180,8 @@ def build_train_transforms(
         ),
     ]
 
+    autoaugment_tensor_transforms = [transforms.ToTensor()]
+
     # normalize last
     for t in [light_tensor_transforms, medium_tensor_transforms, strong_tensor_transforms, autoaugment_tensor_transforms]:
         t.append(transforms.Normalize(mean=MEAN, std=STD))
