@@ -184,7 +184,6 @@ def validate_one_epoch(model, dataloader, criterion, device):
     return epoch_loss, epoch_acc, epoch_macro_f1, epoch_top5, epoch_cm, roc_auc_macro_ovr, all_labels, all_predictions
 
 
-# TODO: refactor optimizer and scheduler creation to work with EXPERIMENT_CONFIG
 
 # the * makes the keyword arguments mandatory
 def run_training(*, 
@@ -212,6 +211,7 @@ def run_training(*,
                 scheduler_kwargs: dict | None = None,
                 use_label_smoothing: bool = False,
                 label_smoothing: float = 0.1,
+                initial_checkpoint: dict | None = None,
 ):
     """
     Main training function:
@@ -278,6 +278,12 @@ def run_training(*,
 
     model.to(device)
 
+    # Allows a new training run from a best-checkpoint
+    if initial_checkpoint is not None:
+        print("Initializing model from BEST checkpoint")
+        model.load_state_dict(initial_checkpoint["model_state"])
+
+    
     # Optional for logging gradients, can introduce significant overhead esepcially with log_graph=True
     # wandb.watch(model, log="gradients", log_freq=100, log_graph=False)
 
@@ -479,7 +485,8 @@ def run_training(*,
             else:
                 scheduler.step()
 
-
+    wandb.finish()
+    
     print(f"Training complete. Best Validation Acc = {best_val_acc:.4f}. Best Validation Loss was = {best_val_loss:.4f}")
     return model, history
 
