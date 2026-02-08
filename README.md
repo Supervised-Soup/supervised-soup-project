@@ -42,7 +42,6 @@ The repository is organized to clearly separate data, experiments, reusable code
 .
 ├── data/                      # Datasets (gitignored; stored externally)
 ├── docs/                      # Documentation, guides, and notes
-├── experiments/               # Experiment configurations and experiment-specific artifacts
 ├── notebooks/                 # Jupyter & Colab notebooks for training and evaluation
 ├── scripts/                   # Helper scripts (setup, utilities, automation)
 ├── supervised_soup/           # Core reusable code (models, training, evaluation logic)
