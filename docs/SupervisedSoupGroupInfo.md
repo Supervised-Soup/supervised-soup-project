@@ -14,8 +14,6 @@ We can also upload the images for the final test set here.
 ### docs
 This folder is for documentation, guides and info.
 
-### experiments
-Here we can keep our experiments seperate.
 
 #### notebooks
 In the notebooks folder we can save our colab notebooks.

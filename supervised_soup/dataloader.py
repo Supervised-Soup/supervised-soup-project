@@ -1,31 +1,19 @@
-#TODO: add/update docstrings
-
 """
-This module implements the Dataloader by creating train/val 
-DataLoader objects with the necessary preprocessing transforms for 
-ResNet-18, including resizing, cropping, normalization, and batching.
+DataLoader utilities for supervised image classification with ImageNet-pretrained
+ResNet models.
 
-The batch size is currently set to 64
+Provides train, validation, and test DataLoader objects using
+torchvision.datasets.ImageFolder with standard ImageNet preprocessing
+(resize, crop, tensor conversion, normalization).
 
-Augmentation presets:
-- random crop + horizontal flip + color/lighting changes
-- rotation / translation
-- noise injection
-- random erasing / cutout-like occlusion
-- optional AutoAugment(ImageNet)
------
+Training data can optionally use preset-based augmentation:
+- "light": random crop, horizontal flip, mild color jitter
+- "medium": light + rotation and translation
+- "strong": medium + Gaussian noise and random erasing
+- "autoaugment": random crop, flip, AutoAugment (ImageNet), random erasing
 
-I have followed roughly these steps: 
-1. Read the picture files.
-2. Decode the JPEG content to RGB grids of pixels.
-3. Convert these into floating-point tensors.
-4. Resize them to a shared size.
-5. Pack them into batches.
-
-Source: https://deeplearningwithpython.io/chapters/chapter08_image-classification/
-
-And the recommendations for resizing and normalizing for pre-trained models from the docs:
-https://docs.pytorch.org/vision/0.12/models.html
+Validation and test sets always use fixed, deterministic transforms.
+Reproducibility is handled via global seeding and worker initialization.
 
 """
 
