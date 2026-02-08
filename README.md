@@ -183,7 +183,7 @@ Checkpoints and logs are stored automatically with wandb or locally in `results/
 
 ### 4. Reproducing Paper Results
 
-All reported results in the paper can be reproduced using the provided notebooks and default configurations. Hyperparameters and augmentation presets are documented directly in the code and appendices of the paper.
+All reported results in the paper can be reproduced using the training notebooks by adjusting the EXPERIMENT_CONFIG cell accordingly. Hyperparameters and augmentation presets are documented directly in the code and appendices of the paper.
 
 ---
 
