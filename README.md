@@ -176,7 +176,7 @@ This short tutorial walks you through reproducing the core experiments.
   - Augmentation preset
 - Train for the specified number of epochs
 
-Checkpoints and logs are stored automatically in `results/`.
+Checkpoints and logs are stored automatically with wandb or locally in `results/`.
 
 ### 3. Evaluation
 
